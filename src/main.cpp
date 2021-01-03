@@ -108,7 +108,13 @@ int main(int, char**)
 
 		//std::cout << camera.Position.x << " " << camera.Position.y << " " << camera.Position.z << " " <<std::endl;
 
-
+		int camPosition_uniform = glGetUniformLocation(shaderProgram, "camPosition");
+		if(camPosition_uniform == -1){
+			fprintf(stderr, "Could not bind location: camPosition\n");
+			exit(0);
+		}
+		glUniform3fv(camPosition_uniform, 1, glm::value_ptr(camera.Position));
+		
 		//Creating the terrain
 		createWorldTerrain(mapHeight, mapWidth, heightMultiplier, mapScale, shaderProgram, map_chunks, numChunksVisible);
 
@@ -234,16 +240,21 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	glUseProgram(program);
 
 	//Bind shader variables
-	int vVertex_attrib = glGetAttribLocation(program, "vVertex");
-	if(vVertex_attrib == -1) {
-		fprintf(stderr, "Could not bind location: vVertex\n");
-		exit(0);
-	}
-	int vColor_attrib = glGetAttribLocation(program, "vColor");
-	if(vColor_attrib == -1) {
-		fprintf(stderr, "Could not bind location: vColor\n");
-		exit(0);
-	}
+	// int vVertex_attrib = glGetAttribLocation(program, "vVertex");
+	// if(vVertex_attrib == -1) {
+	// 	fprintf(stderr, "Could not bind location: vVertex\n");
+	// 	exit(0);
+	// }
+	// int vColor_attrib = glGetAttribLocation(program, "vColor");
+	// if(vColor_attrib == -1) {
+	// 	fprintf(stderr, "Could not bind location: vColor\n");
+	// 	exit(0);
+	// }
+	// int vNormal_attrib = glGetAttribLocation(program, "vNormal");
+	// if(vNormal_attrib == -1) {
+	// 	fprintf(stderr, "Could not bind location: vNormal\n");
+	// 	exit(0);
+	// }
 
 	terrain* currTerrain = new terrain(position, height, width, heightMultiplier, mapScale, noiseMap);
 
@@ -254,15 +265,26 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	//Create VBOs for the VAO
 	//Position information (data + format)
 	int nVertices = currTerrain->getTriangleVerticesCount(height, width);
-
 	GLfloat *expanded_vertices = currTerrain->getTrianglePoints();
 
 	GLuint vertex_VBO;
 	glGenBuffers(1, &vertex_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, vertex_VBO);
 	glBufferData(GL_ARRAY_BUFFER, nVertices*3*sizeof(GLfloat), expanded_vertices, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(vVertex_attrib);
-	glVertexAttribPointer(vVertex_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
+
+
+	GLfloat *expanded_normals = currTerrain->getNormals(height, width);
+
+	GLuint normal_VBO;
+	glGenBuffers(1, &normal_VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, normal_VBO);
+	glBufferData(GL_ARRAY_BUFFER, nVertices*3*sizeof(GLfloat), expanded_normals, GL_STATIC_DRAW);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(2);
+
+	// delete []expanded_normals;
 	delete []expanded_vertices;
 
 	//Color - one for each face
@@ -309,8 +331,8 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	glGenBuffers(1, &color_VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, color_VBO);
 	glBufferData(GL_ARRAY_BUFFER, nVertices*3*sizeof(GLfloat), expanded_colors, GL_STATIC_DRAW);
-	glEnableVertexAttribArray(vColor_attrib);
-	glVertexAttribPointer(vColor_attrib, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(1);
 	delete []expanded_colors;
 	delete []expanded_vertices2;
 

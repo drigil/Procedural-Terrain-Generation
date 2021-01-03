@@ -1,4 +1,5 @@
 //https://mrl.cs.nyu.edu/~perlin/noise/ - Ken Perlin's Implementation
+//https://adrianb.io/2014/08/09/perlinnoise.html - For Explaination  
 
 #include "perlin.h"
 double fade(double t) { return t * t * t * (t * (t * 6 - 15) + 10); };

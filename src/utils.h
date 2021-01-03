@@ -12,6 +12,7 @@
 #include <vector>
 #include <map>
 #include <thread>
+#include <future>
 
 // About Desktop OpenGL function loaders:
 //  Modern desktop OpenGL doesn't have a standard portable header file to load OpenGL function pointers.

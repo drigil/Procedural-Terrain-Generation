@@ -29,7 +29,7 @@ int currentErosionRadius;
 int currWidth;
 int currHeight;
 
-
+//Get Height and Slpoe using nearby values
 std::vector<float> getHeightAndGradient(std::vector<float> &noiseMap, int height, int width, float posX, float posY){
 	std::cout<< "14 "<<std::endl;
 	int nodeX = (int)posX;
@@ -41,23 +41,12 @@ std::vector<float> getHeightAndGradient(std::vector<float> &noiseMap, int height
 
 	int dropIndex = (nodeY * width) + nodeX; //Index of drop in the noiseMap
 	//Calculate heights of the four nodes of the droplet's cell
-	std::cout<< "15 "<<std::endl;
-	std::cout<< "19 "<< posY << std::endl;
-	std::cout<< "20 "<< posX << std::endl;
 	
-	std::cout<< "18 "<< dropIndex << std::endl; //Value becomes nan
-	std::cout<< "31 "<< noiseMap[1552] << std::endl; //Value becomes nan
-	
-	std::cout<< "17 "<< noiseMap[dropIndex] << std::endl;
 
 	float heightTopLeft = noiseMap[dropIndex];
 	float heightTopRight = noiseMap[dropIndex + 1];
 	float heightBottomLeft = noiseMap[dropIndex + width];
 	float heightBottomRight = noiseMap[dropIndex + width + 1];
-
-	std::cout<< "16 "<< heightTopLeft << heightTopRight <<heightBottomLeft << heightBottomRight << std::endl;
-
-	std::cout<< "13 "<<std::endl;
 
 	//Calculate drop's direction with bilinear interpolation of height difference along edges
 	float gradientX = (heightTopRight - heightTopLeft)*(1-y) + (heightBottomRight - heightBottomLeft) * y;
@@ -157,17 +146,11 @@ void erode(std::vector<float> &noiseMap, int height, int width, int numIteration
 			float cellOffsetX = posX - nodeX;
 			float cellOffsetY = posY - nodeY;
 			
-			std::cout<< "8 "<<std::endl;
 			//Order of values in vector - Height, gradientX and gradientY
 			std::vector<float> heightAndGradient = getHeightAndGradient(noiseMap, height, width, posX, posY);
 
 			std::cout<< "9 "<<std::endl;
 			//Update drop's direction and direction
-			std::cout<< "27 "<< dirX << std::endl;
-			std::cout<< "28 "<< dirY << std::endl;
-			std::cout<< "29 "<< heightAndGradient[1] << std::endl;
-			std::cout<< "30 "<< heightAndGradient[2] << std::endl;
-
 			dirX = dirX * inertia - heightAndGradient[1] * (1-inertia);
 			dirY = dirY * inertia - heightAndGradient[2] * (1-inertia);
 

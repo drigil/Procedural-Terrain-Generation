@@ -20,6 +20,8 @@ SOURCES += ../depends/imgui/imgui_impl_glfw.cpp ../imgui_impl_opengl3.cpp
 SOURCES += ./src/utils.cpp ./src/perlin.cpp ./src/createimage.cpp 
 SOURCES += ../../depends/imgui/imgui.cpp ../../depends/imgui/imgui_demo.cpp ../../depends/imgui/imgui_draw.cpp ../../depends/imgui/imgui_widgets.cpp
 
+LDFLAGS=-pthread 
+
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 UNAME_S := $(shell uname -s)
 
@@ -91,7 +93,7 @@ all: $(EXE)
 	@echo Build complete for $(ECHO_MESSAGE)
 
 $(EXE): $(OBJS)
-	$(CXX) -o $@  $(addprefix ./objs/, $(OBJS)) $(CXXFLAGS) $(LIBS)
+	$(CXX) -o $@  $(addprefix ./objs/, $(OBJS)) $(CXXFLAGS) $(LIBS) $(LDFLAGS)
 
 clean:
 #rm -f $(EXE) $(addprefix ./objs/, $(OBJS))

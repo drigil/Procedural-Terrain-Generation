@@ -111,7 +111,7 @@ int openGLInit(){
     //Enable depth buffer (for correct rendering of cube sides)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-
+    
     //Enable multisampling
     glEnable(GL_MULTISAMPLE);
 

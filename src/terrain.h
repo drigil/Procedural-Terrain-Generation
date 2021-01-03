@@ -19,6 +19,7 @@ class terrain{
 		float mapScale;
 		std::vector<float> noiseMap;
 		glm::vec3* vertices;
+		GLfloat* normals;
 		int* triangles; // Contains indices of vertices
 		GLfloat* finalArr;
 
@@ -106,6 +107,78 @@ class terrain{
 
 		    return finalArr;
 		}
+
+		//Call after getTrianglePoints makes updated to vec3 normals
+		//Seg Fault
+		GLfloat* getNormals(int height, int width){
+
+			normals = new GLfloat[getTriangleVerticesCount(height, width) * 3];
+			int normalIndex = 0; // Keep track of vertex
+			int triangleIndex = 0; //keep track of triangle
+			glm::vec3 normal;
+			
+			for ( int row=0; row<height; row++ ) {
+				for ( int col=0; col<width; col++ ) {
+
+					if(col<width-1 && row<height-1){
+
+						//Get normal for triangle 1
+						glm::vec3 side1 = vertices[triangles[triangleIndex + 1]] - vertices[triangles[triangleIndex]];
+						glm::vec3 side2 = vertices[triangles[triangleIndex + 2]] - vertices[triangles[triangleIndex]];
+						normal = glm::normalize(-glm::cross(side1, side2));
+						
+						normals[normalIndex  ] = normal[0];
+						normals[normalIndex+1] = normal[1];
+						normals[normalIndex+2] = normal[2];
+
+						normals[normalIndex+3] = normal[0];
+						normals[normalIndex+4] = normal[1];
+						normals[normalIndex+5] = normal[2];
+
+						normals[normalIndex+6] = normal[0];
+						normals[normalIndex+7] = normal[1];
+						normals[normalIndex+8] = normal[2];
+
+
+						triangleIndex = triangleIndex + 3;
+						normalIndex = normalIndex + 9;
+						// std::cout << "first triangle" <<std::endl;
+
+						//Get normal for triangle 1
+						side1 = vertices[triangles[triangleIndex + 1]] - vertices[triangles[triangleIndex]];
+						side2 = vertices[triangles[triangleIndex + 2]] - vertices[triangles[triangleIndex]];
+						normal = glm::normalize(-glm::cross(side1, side2));
+
+						normals[normalIndex  ] = normal[0];
+						normals[normalIndex+1] = normal[1];
+						normals[normalIndex+2] = normal[2];
+
+						normals[normalIndex+3] = normal[0];
+						normals[normalIndex+4] = normal[1];
+						normals[normalIndex+5] = normal[2];
+
+						normals[normalIndex+6] = normal[0];
+						normals[normalIndex+7] = normal[1];
+						normals[normalIndex+8] = normal[2];
+						
+
+						triangleIndex = triangleIndex + 3;
+						normalIndex = normalIndex + 9;
+						// std::cout << "second triangle" <<std::endl;
+
+					}
+
+
+
+				}
+			}
+
+			return normals;
+
+		}
+
+
+
 
 };
 
