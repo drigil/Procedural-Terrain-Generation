@@ -1,5 +1,6 @@
-Realtime Procedural Terrain Generation
+# Realtime Procedural Terrain Generation
 
+![finalOutput](https://user-images.githubusercontent.com/49494567/103683300-04e6b900-4fb0-11eb-9ef4-6672ba907927.png)
 ```
 Figure 1: Current Output In The Project
 ```
@@ -75,6 +76,7 @@ map generation function takes in the number of octaves(Number of overlapping per
 persistence(Decrease in amplitude of octaves), lacunarity(Increase in frequency of octaves)
 and noise scale(Scale of the obtained map) as parameters.
 
+![perlinNoiseJPGFormat](https://user-images.githubusercontent.com/49494567/103683367-1f209700-4fb0-11eb-9901-1b5f257b1baa.jpg)
 ```
 Figure 2: Noise Map Generated From Perlin Noise
 ```
@@ -89,8 +91,11 @@ the higher it will be in the mesh and vice versa. As the mesh is triangulated, w
 one vertex upwards or downwards, the nearby points will adjust to maintain continuity and
 hence we have our required 3d mesh.
 
+![flat shading cropped](https://user-images.githubusercontent.com/49494567/103683482-40818300-4fb0-11eb-943b-8d7fa215cfa6.png)
+```
 Figure 3: Mesh generated using Perlin Noise, where vertices are colored according to their
 height
+```
 
 3.1.3 Adding Movement
 
@@ -134,9 +139,15 @@ some amount of sediment along with it as it flows down the terrain, depositing s
 sediment and gaining more as well. It will continue to do so until the raindrop has either
 evaporated or it has reached a flat surface where it will deposit all of its remaining sediment.
 
+![withouterosion](https://user-images.githubusercontent.com/49494567/103683831-b1c13600-4fb0-11eb-9ac0-b35ed38733af.png)
+
+![erosion](https://user-images.githubusercontent.com/49494567/103683825-aff77280-4fb0-11eb-8927-0986abaf2c40.png)
+
+![Erosion terrain](https://user-images.githubusercontent.com/49494567/103683826-b0900900-4fb0-11eb-84c6-7116aa4eb1da.png)
+
 ```
 (a) Without Erosion (b) With Hydraulic Erosion with
-70,000 drops
+70,000 drops (c) Mesh after erosion
 ```
 3.2.2 Adding colour or texture to the mesh
 
@@ -151,10 +162,6 @@ doesn’t give realistic-looking results, one may consider it if their environme
 One example of the resulting output, where colour is added according to the height of each
 vertex is provided below. (Note that we have used flat shading inside the fragment shader
 currently as it gives more appealing results.)
-
-Figure 4: Mesh colored according to different regions, where each region is assigned a
-different color
-
 
 3.2.3 Grass and Trees using instancing
 
@@ -171,10 +178,6 @@ structures. The steps for this task are:
     of the texture for each vertex and face. We create a new shader class that does the
     texture mapping using the mtl information.
 4. We now are able to load a model into the scene. The output is as follows:
-
-```
-Figure 5: Single model loaded with materials.
-```
 5. However, we want to place multiple models in the scene. To do this efficiently, we use
     instancing. This is because the OpenGL render callglDrawArrays()is computa-
     tionally expensive. Hence if we wanted to place thousands of models, the render call
@@ -188,9 +191,6 @@ Figure 5: Single model loaded with materials.
     a more natural feel. We perform instancing of different types of models so as to have
     a diverse vegetation in the world. The output of this is as follows:
 
-```
-Figure 6: Instanced tree models placed across terrain.
-```
 ### 3.3 Milestone 3
 
 3.3.1 Adding Lighting
@@ -198,7 +198,7 @@ Figure 6: Instanced tree models placed across terrain.
 Up until now, our terrain looked flat and one couldn’t tell if there were crevices on the
 surface or not. Hence, the details we had added weren’t as clearly as visible. To make these
 
-
+![postShading2](https://user-images.githubusercontent.com/49494567/103684019-f4830e00-4fb0-11eb-8007-14b607e8177d.png)
 ```
 Figure 7: Terrain after Phong Lighting
 ```
@@ -226,6 +226,7 @@ The continuity is maintained using the Perlin Noise function. While creating a n
 chunk, we simply pick up from where we left off in the previous chunk, hence ensuring that
 there are no irregularities or visible seems at the edges of 2 planes.
 
+![top_look_cropped](https://user-images.githubusercontent.com/49494567/103684078-049aed80-4fb1-11eb-8360-7444a5090856.png)
 ```
 Figure 8: Top view of 9 meshes stitched together
 ```
@@ -238,9 +239,7 @@ its faces. The HD textures were obtained from the internet. The textures were ch
 that they would seamlessly join at the edges. The cube was then mapped with the camera’s
 movements. Hence, we created a skybox that fills the complete world background.
 
-```
-Figure 9: World with skybox in the background
-```
+
 ## 4 References
 
 1. https://assimp-docs.readthedocs.io/en/latest/, Assimp model loading library
@@ -255,4 +254,7 @@ Figure 9: World with skybox in the background
 7. [http://www.diva-portal.org/smash/get/diva2:1355216/FULLTEXT01.pdf](http://www.diva-portal.org/smash/get/diva2:1355216/FULLTEXT01.pdf)
 8. https://sci-hub.do/https://ieeexplore.ieee.org/abstract/document/
 
+## 5 Dependencies
 
+1. assimp library
+2. SOIL library
