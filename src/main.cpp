@@ -1,3 +1,5 @@
+#define STB_IMAGE_IMPLEMENTATION
+
 #include "utils.h"
 #include "camera.h"
 #include "perlin.h"
@@ -5,17 +7,24 @@
 #include "erosion.h"
 #include "terrain.h"
 
-// Tasks - 
+#include "shader.h"
+#include "SOIL.h"
+#include "modelLoader.h"
+#include "glm/gtx/string_cast.hpp"
+
+
+
+// Tasks -
 // 1. Check if erosion is working - Not sure, hangs for numIterations > 2000. Might need multi threading
 // 2. Stitching along one axis not proper
 // 3. Look into multi threading
 // 4. Check varying numchunks visible and terrainXChunks and terrainYChunks
 // 5. check code at line 180
 
-int windowWidth = 640, windowHeight=640;
+int windowWidth = 1920, windowHeight=1080;
 
 // camera
-Camera camera(glm::vec3(0.0f, 100.0f, 0.0f));
+Camera camera(glm::vec3(0.0f, 15.0f, 0.0f));
 float lastX = windowWidth / 2.0f;
 float lastY = windowHeight / 2.0f;
 bool firstMouse = true;
@@ -24,14 +33,18 @@ float lastFrame = 0.0f;
 
 //Perlin noise generation
 int octaves = 7; // Number of overlapping perlin maps
-float persistence = 0.5f; // Persistence --> Decrease in amplitude of octaves               
+float persistence = 0.5f; // Persistence --> Decrease in amplitude of octaves
 float lacunarity = 2.0f; // Lacunarity  --> Increase in frequency of octaves
-float noiseScale = 64.0f; //Scale of the obtained map 
+float noiseScale = 64.0f; //Scale of the obtained map
 
 //For infinite terrain
 int numChunksVisible = 1;
 int terrainXChunks = 3;
 int terrainYChunks = 3;
+
+// For trees
+unsigned int amount = 500;
+glm::mat4* modelMatrices;
 std::map<std::vector<int>, bool> terrainChunkDict; //Keep track of whether terrain chunk at position or not
 std::vector<std::vector<int>> lastViewedChunks; //Keep track of last viewed vectors
 std::map<std::vector<int>, int> terrainPosVsChunkIndexDict; //Chunk position vs index in map_chunks
@@ -52,9 +65,11 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 std::vector<float> generateNoiseMap(int offsetX, int offsetY, int chunkHeight, int chunkWidth);
+unsigned int skyBox();
+unsigned int loadCubemap(vector<std::string> faces);
 
 int main(int, char**)
-{   
+{
 	//For map generation
 	int mapHeight = 128; //Height of each chunk
 	int mapWidth = 128; //Width of each chunk
@@ -85,6 +100,27 @@ int main(int, char**)
 	setupProjectionTransformation(shaderProgram, mapWidth , mapHeight); //maybe window width and height, check
 
 	//createWorldTerrain(mapHeight, mapWidth, heightMultiplier, mapScale, shaderProgram, map_chunks, numChunksVisible);
+    Shader ourShader("./shaders/model.vs", "./shaders/model.fs");
+    Model ourModel("./objects/Tree/Tree.obj");
+    ourShader.use();
+
+
+	unsigned int skyboxVAO = skyBox();
+    vector<std::string> faces
+            {
+                    "tex/right.jpg",
+                    "tex/left.jpg",
+                    "tex/top.jpg",
+                    "tex/bottom.jpg",
+                    "tex/front.jpg",
+                    "tex/back.jpg"
+            };
+
+    unsigned int cubemapTexture = loadCubemap(faces);
+    Shader skyboxShader("./shaders/skybox.vs", "./shaders/skybox.fs");
+    skyboxShader.use();
+    skyboxShader.setInt("skybox", 0);
+
 
 	//Create initial map chunk for testing
 
@@ -95,7 +131,11 @@ int main(int, char**)
  //    glGenVertexArrays(1, &VAO);
 	// createPlane(position, 0, 0, mapHeight, mapWidth, 150.0f, mapScale, shaderProgram, VAO);
 
-	while (!glfwWindowShouldClose(window))
+
+
+
+
+    while (!glfwWindowShouldClose(window))
 	{
 
 		float currentFrame = glfwGetTime();
@@ -105,6 +145,12 @@ int main(int, char**)
 		// input
 		// -----
 		processInput(window);
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
 
 		//std::cout << camera.Position.x << " " << camera.Position.y << " " << camera.Position.z << " " <<std::endl;
 
@@ -114,19 +160,17 @@ int main(int, char**)
 			exit(0);
 		}
 		glUniform3fv(camPosition_uniform, 1, glm::value_ptr(camera.Position));
-		
+
 		//Creating the terrain
 		createWorldTerrain(mapHeight, mapWidth, heightMultiplier, mapScale, shaderProgram, map_chunks, numChunksVisible);
 
 		setupViewTransformation(shaderProgram);
-		// Start the Dear ImGui frame
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
 
 		glUseProgram(shaderProgram);
 
-		{
+
+
+        {
 			static float f = 0.0f;
 			static int counter = 0;
 
@@ -140,8 +184,6 @@ int main(int, char**)
 		int display_w, display_h;
 		glfwGetFramebufferSize(window, &display_w, &display_h);
 		glViewport(0, 0, display_w, display_h);
-		glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		for(int i = 0; i<terrainXChunks * terrainYChunks; i++){
 			//std::cout << i << " " << map_chunks[i] << std::endl;
@@ -149,9 +191,43 @@ int main(int, char**)
 			glDrawArrays(GL_TRIANGLES, 0, (mapWidth-1) * (mapHeight-1) * 6);
 		}
 
+        ourShader.use();
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)windowWidth / (float)windowHeight, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        ourShader.setMat4("projection", projection);
+        ourShader.setMat4("view", view);
+
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(1.0f, 1.0f, 1.0f));
+        ourShader.setMat4("model", model);
+        ourModel.Draw(ourShader);
+        for (unsigned int i = 0; i < amount; i++)
+        {
+            ourShader.setMat4("model", modelMatrices[i]);
+            ourModel.Draw(ourShader);
+        }
+
+		glDepthFunc(GL_LEQUAL);
+        skyboxShader.use();
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix()));
+        skyboxShader.setMat4("view", view);
+        skyboxShader.setMat4("projection", projection);
+        glBindVertexArray(skyboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS);
+
 		//For plane test
 		// glBindVertexArray(VAO);
 		// glDrawArrays(GL_TRIANGLES, 0, (mapWidth-1) * (mapHeight-1) * 6 * 9);
+
+
+
+
+
 
 		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		glfwPollEvents();
@@ -172,16 +248,16 @@ int main(int, char**)
 std::vector<float> generateNoiseMap(int offsetX, int offsetY, int chunkHeight, int chunkWidth) {
 	std::vector<float> noiseValues;
 	std::vector<float> normalizedNoiseValues;
-	
+
 	float amp  = 1;
 	float freq = 1;
 	float maxPossibleHeight = 0;
-	
+
 	for (int i = 0; i < octaves; i++) {
 		maxPossibleHeight += amp;
 		amp *= persistence;
 	}
-	
+
 	for (int y = 0; y < chunkHeight; y++) {
 		for (int x = 0; x < chunkWidth; x++) {
 			amp  = 1;
@@ -191,20 +267,20 @@ std::vector<float> generateNoiseMap(int offsetX, int offsetY, int chunkHeight, i
 			for (int i = 0; i < octaves; i++) {
 				float xSample = (x + (offsetX*(chunkWidth-1)) - (float)((chunkWidth-1)/2))  / noiseScale * freq;
 				float ySample = (-y + (offsetY*(chunkHeight-1)) + (float)((chunkHeight-1)/2)) / noiseScale * freq;
-				
+
 				float perlinValue = getPerlinNoise(xSample, ySample);
 				noiseHeight += perlinValue * amp;
-				
+
 				// Lacunarity  --> Increase in frequency of octaves
 				// Persistence --> Decrease in amplitude of octaves
 				amp  *= persistence;
 				freq *= lacunarity;
 			}
-			
+
 			noiseValues.push_back(noiseHeight);
 		}
 	}
-	
+
 	for (int y = 0; y < chunkHeight; y++) {
 		for (int x = 0; x < chunkWidth; x++) {
 			// Inverse lerp and scale values to range from 0 to 1
@@ -222,7 +298,7 @@ std::vector<float> generateNoiseMap(int offsetX, int offsetY, int chunkHeight, i
 
 //Create mesh for one chunk
 void createPlane(std::vector<int> &position, int xOffset, int yOffset, int height, int width, float heightMultiplier, float mapScale, unsigned int &program, GLuint &plane_VAO) //Check if offsets required
-{   
+{
 
 	// Generate height map using perlin noise
 	std::vector<float> noiseMap = generateNoiseMap(position[0], position[1], height, width);
@@ -257,6 +333,10 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	// }
 
 	terrain* currTerrain = new terrain(position, height, width, heightMultiplier, mapScale, noiseMap);
+
+    //For tree generation
+
+
 
 	//Generate VAO object
 	glGenVertexArrays(1, &plane_VAO);
@@ -293,6 +373,35 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	GLfloat *expanded_vertices2 = currTerrain->getTrianglePoints();
 	GLfloat *expanded_colors = new GLfloat[nVertices*3];
 
+    modelMatrices = new glm::mat4[amount];
+    srand(glfwGetTime()); // initialize random seed
+    float radius = 100.0;
+    float offset = 20.0f;
+    for (unsigned int i = 0; i < amount; i++)
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        // 1. translation: displace along circle with 'radius' in range [-offset, offset]
+        float angle = (float)i / (float)amount * 360.0f;
+        float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float x = sin(angle) * radius + displacement;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float y = displacement * 0.5f; // keep height of asteroid field smaller compared to width of x and z
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float z = cos(angle) * radius + displacement;
+        model = glm::translate(model, glm::vec3(x, y, z));
+
+        // 2. scale: Scale between 0.05 and 0.25f
+        float scale = (rand() % 20) / 100.0f + 1;
+        model = glm::scale(model, glm::vec3(scale));
+
+        // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
+//        float rotAngle = (rand() % 360);
+//        model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
+
+        // 4. now add to list of matrices
+        modelMatrices[i] = model;
+    }
+
 	//Creating different terrain types
 	//Height is the upper threshold
 	terrainType snowTerrain = terrainType("snow", heightMultiplier * 1.0f, 0.9, 0.9, 0.9); //white
@@ -310,7 +419,7 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 	terrainArr.push_back(snowTerrain);
 
 	for(int i=0; i<nVertices; i++) {
-		
+
 		//Assign color according to height
 		float currHeight = expanded_vertices2[i*3+1];
 		for(int j = 0; j<terrainCount; j++){
@@ -324,7 +433,7 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 				break;
 			}
 		}
-		
+
 	}
 
 	GLuint color_VBO;
@@ -342,7 +451,7 @@ void createPlane(std::vector<int> &position, int xOffset, int yOffset, int heigh
 
 //Create and combine multiple chunks - Endless terrain generation
 void createWorldTerrain(int mapHeight, int mapWidth, float heightMultiplier, float mapScale, unsigned int &program, std::vector<GLuint> &map_chunks, int numChunksVisible){
- 
+
 	int chunkHeight = mapHeight;
 	int chunkWidth = mapWidth;
 
@@ -350,7 +459,7 @@ void createWorldTerrain(int mapHeight, int mapWidth, float heightMultiplier, flo
 	int currChunkCoordX = (int)round(camera.Position.x / chunkWidth); //Get current chunk x coordinate
 	int currChunkCoordY = (int)round(camera.Position.z / chunkHeight); //Get current chunk y(or z according to our coord system) coordinate
 
-	//std::cout << " Currently at " << currChunkCoordX << " " << currChunkCoordY << std::endl;    
+	//std::cout << " Currently at " << currChunkCoordX << " " << currChunkCoordY << std::endl;
 
 	//Check which chunks have become out of view
 	std::vector<std::vector<int>> chunksOutOfView;
@@ -400,12 +509,12 @@ void createWorldTerrain(int mapHeight, int mapWidth, float heightMultiplier, flo
 
 				else{
 					//No replacement needed
-					terrainChunkDict[viewedChunkCoord] = true; 
+					terrainChunkDict[viewedChunkCoord] = true;
 					terrainPosVsChunkIndexDict[viewedChunkCoord] = (xOffset+numChunksVisible) + (yOffset+numChunksVisible) * terrainXChunks;
 					std::cout << "Initial map index is " << (xOffset+numChunksVisible) + (yOffset+numChunksVisible) * terrainXChunks <<std::endl;
 					createPlane(viewedChunkCoord,  xOffset, yOffset, mapHeight, mapWidth, heightMultiplier, mapScale, program, map_chunks[(xOffset+numChunksVisible) + (yOffset+numChunksVisible) * terrainXChunks]);
 					std::cout<<"Initial Plane created at " << viewedChunkCoord[0] << " " << viewedChunkCoord[1] <<std::endl;
-					
+
 				}
 
 				for(int x: map_chunks){
@@ -416,8 +525,8 @@ void createWorldTerrain(int mapHeight, int mapWidth, float heightMultiplier, flo
 					std::cout << v[0] << " " << v[1] << " - " << terrainPosVsChunkIndexDict[v] << std::endl;
 				}
 
-				countChunks ++;				
-				
+				countChunks ++;
+
 			}
 
 			lastViewedChunks.push_back(viewedChunkCoord);
@@ -560,4 +669,95 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	camera.ProcessMouseScroll(yoffset);
+}
+
+
+unsigned int skyBox(){
+    float skyboxVertices[] = {
+            -1.0f,  1.0f, -1.0f,
+            -1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+
+            -1.0f, -1.0f,  1.0f,
+            -1.0f, -1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f, -1.0f,
+            -1.0f,  1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+
+            -1.0f, -1.0f,  1.0f,
+            -1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f, -1.0f,  1.0f,
+            -1.0f, -1.0f,  1.0f,
+
+            -1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f, -1.0f,
+            1.0f,  1.0f,  1.0f,
+            1.0f,  1.0f,  1.0f,
+            -1.0f,  1.0f,  1.0f,
+            -1.0f,  1.0f, -1.0f,
+
+            -1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f, -1.0f,
+            1.0f, -1.0f, -1.0f,
+            -1.0f, -1.0f,  1.0f,
+            1.0f, -1.0f,  1.0f
+    };
+
+    unsigned int skyboxVAO, skyboxVBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+
+    return skyboxVAO;
+}
+
+unsigned int loadCubemap(vector<std::string> faces)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+    int width, height, nrChannels;
+    for (unsigned int i = 0; i < faces.size(); i++)
+    {
+        unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+        if (data)
+        {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+            );
+            stbi_image_free(data);
+        }
+        else
+        {
+            std::cout << "Cubemap tex failed to load at path: " << faces[i] << std::endl;
+            stbi_image_free(data);
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return textureID;
 }
